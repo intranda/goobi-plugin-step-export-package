@@ -12,8 +12,21 @@
         <project>*</project>
         <step>*</step>
         
-        <!-- sample parameter -->
+        <!-- export path -->
         <target>/opt/digiverso/export/</target>
+        
+        <!-- which image folders to use (master|media|jpeg|source|...) -->
+		<imagefolder>master</imagefolder>
+        <imagefolder>media</imagefolder>
+        
+        <!-- which additional folders to use -->
+        <ocr>false</ocr>
+        <source>false</source>
+        <import>false</import>
+        <export>false</export>
+        <itm>false</itm>
+        <validation>false</validation>
+        
     </config>
 
 </config_plugin>
