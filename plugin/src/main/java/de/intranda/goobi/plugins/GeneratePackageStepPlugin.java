@@ -51,10 +51,10 @@ import ugh.exceptions.WriteException;
 
 @PluginImplementation
 @Log4j2
-public class GenerateResultPackageStepPlugin implements IStepPluginVersion2 {
+public class GeneratePackageStepPlugin implements IStepPluginVersion2 {
     
     @Getter
-    private String title = "intranda_step_generateResultPackage";
+    private String title = "intranda_step_generatePackage";
     @Getter
     private Step step;
     @Getter
@@ -70,7 +70,7 @@ public class GenerateResultPackageStepPlugin implements IStepPluginVersion2 {
         SubnodeConfiguration myconfig = ConfigPlugins.getProjectAndStepConfig(title, step);
         target = myconfig.getString("target", "default target"); 
         
-        log.info("GenerateResultPackage step plugin initialized");
+        log.info("GeneratePackage step plugin initialized");
     }
 
     @Override
@@ -130,7 +130,7 @@ public class GenerateResultPackageStepPlugin implements IStepPluginVersion2 {
             Helper.setFehlerMeldung("Error during METS export in package generation", e);
         }
                 
-        log.info("GenerateResultPackage step plugin executed");
+        log.info("GeneratePackage step plugin executed");
         if (!successfull) {
             return PluginReturnValue.ERROR;
         }
