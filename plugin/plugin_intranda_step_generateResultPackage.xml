@@ -13,9 +13,7 @@
         <step>*</step>
         
         <!-- sample parameter -->
-        <value>test</value>
-        <!-- display button to finish the task directly from within the entered plugin -->
-        <allowTaskFinishButtons>true</allowTaskFinishButtons>
+        <target>/opt/digiverso/export/</target>
     </config>
 
 </config_plugin>

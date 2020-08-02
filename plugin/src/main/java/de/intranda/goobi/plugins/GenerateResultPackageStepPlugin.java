@@ -1,5 +1,7 @@
 package de.intranda.goobi.plugins;
 
+import java.io.IOException;
+
 /**
  * This file is part of a plugin for Goobi - a Workflow tool for the support of mass digitization.
  *
@@ -23,6 +25,7 @@ import java.util.HashMap;
 
 import org.apache.commons.configuration.SubnodeConfiguration;
 import org.goobi.beans.Step;
+import org.goobi.production.enums.LogType;
 import org.goobi.production.enums.PluginGuiType;
 import org.goobi.production.enums.PluginReturnValue;
 import org.goobi.production.enums.PluginType;
@@ -30,22 +33,32 @@ import org.goobi.production.enums.StepReturnValue;
 import org.goobi.production.plugin.interfaces.IStepPluginVersion2;
 
 import de.sub.goobi.config.ConfigPlugins;
+import de.sub.goobi.export.download.ExportMets;
+import de.sub.goobi.helper.Helper;
+import de.sub.goobi.helper.exceptions.DAOException;
+import de.sub.goobi.helper.exceptions.ExportFileException;
+import de.sub.goobi.helper.exceptions.SwapException;
+import de.sub.goobi.helper.exceptions.UghHelperException;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import net.xeoh.plugins.base.annotations.PluginImplementation;
+import ugh.exceptions.DocStructHasNoTypeException;
+import ugh.exceptions.MetadataTypeNotAllowedException;
+import ugh.exceptions.PreferencesException;
+import ugh.exceptions.ReadException;
+import ugh.exceptions.TypeNotAllowedForParentException;
+import ugh.exceptions.WriteException;
 
 @PluginImplementation
 @Log4j2
-public class SampleStepPlugin implements IStepPluginVersion2 {
+public class GenerateResultPackageStepPlugin implements IStepPluginVersion2 {
     
     @Getter
-    private String title = "intranda_step_sample";
+    private String title = "intranda_step_generateResultPackage";
     @Getter
     private Step step;
     @Getter
-    private String value;
-    @Getter 
-    private boolean allowTaskFinishButtons;
+    private String target;
     private String returnPath;
 
     @Override
@@ -55,22 +68,19 @@ public class SampleStepPlugin implements IStepPluginVersion2 {
                 
         // read parameters from correct block in configuration file
         SubnodeConfiguration myconfig = ConfigPlugins.getProjectAndStepConfig(title, step);
-        value = myconfig.getString("value", "default value"); 
-        allowTaskFinishButtons = myconfig.getBoolean("allowTaskFinishButtons", false);
-        log.info("Sample step plugin initialized");
+        target = myconfig.getString("target", "default target"); 
+        
+        log.info("GenerateResultPackage step plugin initialized");
     }
 
     @Override
     public PluginGuiType getPluginGuiType() {
-        return PluginGuiType.FULL;
-        // return PluginGuiType.PART;
-        // return PluginGuiType.PART_AND_FULL;
-        // return PluginGuiType.NONE;
+        return PluginGuiType.NONE;
     }
 
     @Override
     public String getPagePath() {
-        return "/uii/plugin_step_sample.xhtml";
+        return null;
     }
 
     @Override
@@ -106,13 +116,26 @@ public class SampleStepPlugin implements IStepPluginVersion2 {
 
     @Override
     public PluginReturnValue run() {
-        boolean successfull = true;
-        // your logic goes here
-        
-        log.info("Sample step plugin executed");
+        boolean successfull = false;
+        // first do the regular export of the METS file
+        ExportMets em = new ExportMets();
+        try {
+            successfull = em.startExport(step.getProzess(), target);
+        } catch (PreferencesException | WriteException | DocStructHasNoTypeException | MetadataTypeNotAllowedException
+                | ReadException | TypeNotAllowedForParentException | IOException | InterruptedException
+                | ExportFileException | UghHelperException | SwapException | DAOException e) {
+            log.error("Error during METS export in package generation", e);
+            Helper.addMessageToProcessLog(step.getProzess().getId(), LogType.ERROR,
+                    "Error during METS export in package generation: " + e.getMessage());
+            Helper.setFehlerMeldung("Error during METS export in package generation", e);
+        }
+                
+        log.info("GenerateResultPackage step plugin executed");
         if (!successfull) {
             return PluginReturnValue.ERROR;
         }
         return PluginReturnValue.FINISH;
     }
+    
+    
 }
