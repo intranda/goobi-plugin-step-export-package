@@ -58,7 +58,7 @@ import ugh.exceptions.WriteException;
 
 @PluginImplementation
 @Log4j2
-public class GenerateExportPackageStepPlugin implements IStepPluginVersion2 {
+public class ExportPackageStepPlugin implements IStepPluginVersion2 {
     
     @Getter
     private String title = "intranda_step_generateExportPackage";

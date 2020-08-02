@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>goobi-plugin-step-generateExportPackage</name>
+	<name>goobi-plugin-step-exportPackage</name>
 	<comment></comment>
 	<projects>
 	</projects>
