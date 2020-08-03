@@ -29,13 +29,13 @@
         
         <!-- if the internal METS file shall get transformed into another file define the path of the xsl file here -->
         <transformMetaFile>true</transformMetaFile>
-        <transformMetaFileXsl>/opt/digiverso/goobi/xslt/package_meta.xsl</transformMetaFileXsl>
-        <transformMetaFileResultFileName>resultFromInternalMets.xml</transformMetaFileResultFileName>
+        <transformMetaFileXsl>/opt/digiverso/goobi/xslt/export_meta.xsl</transformMetaFileXsl>
+        <transformMetaFileResultFileName>xslt_result_meta.xml</transformMetaFileResultFileName>
         
         <!-- if the METS file shall get transformed into another file define the path of the xsl file here -->
         <transformMetsFile>true</transformMetsFile>
-        <transformMetsFileXsl>/opt/digiverso/goobi/xslt/package_mets.xsl</transformMetsFileXsl>
-        <transformMetsFileResultFileName>resultFromMets.xml</transformMetsFileResultFileName>
+        <transformMetsFileXsl>/opt/digiverso/goobi/xslt/export_mets.xsl</transformMetsFileXsl>
+        <transformMetsFileResultFileName>xslt_result_mets.xml</transformMetsFileResultFileName>
     </config>
 
 </config_plugin>
