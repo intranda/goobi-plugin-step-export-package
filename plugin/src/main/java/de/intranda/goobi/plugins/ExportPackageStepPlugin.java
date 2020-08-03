@@ -1,5 +1,6 @@
 package de.intranda.goobi.plugins;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -28,6 +29,13 @@ import java.util.Arrays;
 
 import java.util.HashMap;
 import java.util.List;
+
+import javax.xml.transform.Source;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.stream.StreamResult;
+import javax.xml.transform.stream.StreamSource;
 
 import org.apache.commons.configuration.SubnodeConfiguration;
 import org.goobi.beans.Step;
@@ -61,7 +69,7 @@ import ugh.exceptions.WriteException;
 public class ExportPackageStepPlugin implements IStepPluginVersion2 {
     
     @Getter
-    private String title = "intranda_step_generateExportPackage";
+    private String title = "intranda_step_exportPackage";
     @Getter
     private Step step;
     private String target;
@@ -73,6 +81,12 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
     private boolean includeExport = false;
     private boolean includeITM = false;
     private boolean includeValidation = false;
+    private boolean transformMetaFile = false;
+    private String transformMetaFileXsl = "";
+    private String transformMetaFileResultFileName = "";
+    private boolean transformMetsFile = false;
+    private String transformMetsFileXsl = "";
+    private String transformMetsFileResultFileName = "";
     
     @Override
     public void initialize(Step step, String returnPath) {
@@ -89,6 +103,13 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
         includeExport = myconfig.getBoolean("export", false);
         includeITM = myconfig.getBoolean("itm", false);
         includeValidation = myconfig.getBoolean("validation", false);
+        
+        transformMetaFile = myconfig.getBoolean("transformMetaFile", false);
+        transformMetaFileXsl = myconfig.getString("transformMetaFileXsl", "/opt/digiverso/goobi/package_meta.xsl");
+        transformMetaFileResultFileName = myconfig.getString("transformMetaFileResultFileName", "resultFromInternalMets.xml");
+        transformMetsFile = myconfig.getBoolean("transformMetsFile", false);
+        transformMetsFileXsl = myconfig.getString("transformMetsFileXsl", "/opt/digiverso/goobi/package_mets.xsl");
+        transformMetsFileResultFileName = myconfig.getString("transformMetsFileResultFileName", "resultFromMets.xml");
         
         log.info("GeneratePackage step plugin initialized");
     }
@@ -179,6 +200,10 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
         }
         
         try {
+            
+            // copy the internal meta.xml file
+            StorageProvider.getInstance().copyFile(Paths.get(step.getProzess().getMetadataFilePath()), Paths.get(destination.toString(), step.getProzess().getTitel() + "_meta.xml"));
+            
             // export ocr results
             if (includeOcr) {
                 Path ocrFolder = Paths.get(step.getProzess().getOcrDirectory());
@@ -234,7 +259,26 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
                             .copyDirectory(validationFolder, Paths.get(destination.toString(), validationFolder.getFileName().toString()));
                 }
             }
-        } catch (SwapException | DAOException | IOException | InterruptedException e) {
+            
+            // do XSLT Transformation of METS file
+            if (transformMetsFile) {
+                Source xslt = new StreamSource(new File(transformMetsFileXsl));
+                Source mets = new StreamSource(Paths.get(destination.toString(), step.getProzess().getTitel() + "_mets.xml").toFile());
+                TransformerFactory factory = TransformerFactory.newInstance();
+                Transformer transformer = factory.newTransformer(xslt);
+                transformer.transform(mets, new StreamResult(new File(destination.toFile(), transformMetsFileResultFileName)));
+            }
+            
+            // do XSLT Transformation of internal METS file
+            if (transformMetaFile) {
+                Source xslt = new StreamSource(new File(transformMetaFileXsl));
+                Source mets = new StreamSource(Paths.get(destination.toString(), step.getProzess().getTitel() + "_meta.xml").toFile());
+                TransformerFactory factory = TransformerFactory.newInstance();
+                Transformer transformer = factory.newTransformer(xslt);
+                transformer.transform(mets, new StreamResult(new File(destination.toFile(), transformMetaFileResultFileName)));
+            }
+            
+        } catch (SwapException | DAOException | IOException | TransformerException | InterruptedException e) {
             successful = false;
             log.error("Error during additional folder export in package generation", e);
             Helper.addMessageToProcessLog(step.getProzess().getId(), LogType.ERROR,
