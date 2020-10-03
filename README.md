@@ -8,15 +8,15 @@ This is a plugin for Goobi workflow, the open source workflow tracking software 
 
 ## Plugin details
 
-More information about the functionality of this plugin and the complete documentation can be found in the central documentation area at https://docs.intranda.com
+More information about the functionality of this plugin and the complete documentation can be found in the central documentation area at https://docs.goobi.io
 
 Detail | Description
 --- | ---
 **Plugin identifier**       | intranda_step_exportPackage 
 **Plugin type**             | Step plugin
 **Licence**                 | GPL 2.0 or newer    
-**Documentation (German)**  | - no documentation available -
-**Documentation (English)** | - no documentation available -
+**Documentation (German)**  | https://docs.goobi.io/goobi-workflow-plugins-de/step/intranda_step_exportpackage 
+**Documentation (English)** | https://docs.goobi.io/goobi-workflow-plugins-en/step/intranda_step_exportpackage 
 
 ## Goobi details
 
