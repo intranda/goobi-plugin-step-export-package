@@ -26,6 +26,8 @@
         <export>false</export>
         <itm>false</itm>
         <validation>false</validation>
+        <uuid>false</uuid>
+        <checksum>false</checksum>
         
         <!-- if the internal METS file shall get transformed into another file define the path of the xsl file here -->
         <transformMetaFile>true</transformMetaFile>
