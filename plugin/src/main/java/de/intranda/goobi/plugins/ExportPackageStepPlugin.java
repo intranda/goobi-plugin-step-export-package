@@ -3,12 +3,13 @@ package de.intranda.goobi.plugins;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.Writer;
+import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 
 /**
  * This file is part of a plugin for Goobi - a Workflow tool for the support of mass digitization.
@@ -30,8 +31,10 @@ import java.util.Arrays;
  */
 
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Scanner;
 import java.util.UUID;
 
 import javax.xml.transform.Source;
@@ -41,8 +44,10 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
 
+import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.configuration.SubnodeConfiguration;
 import org.apache.commons.lang.StringUtils;
+import org.goobi.beans.Process;
 import org.goobi.beans.Step;
 import org.goobi.production.enums.LogType;
 import org.goobi.production.enums.PluginGuiType;
@@ -84,9 +89,10 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
     private String title = "intranda_step_exportPackage";
     @Getter
     private Step step;
+    private Process process;
     private String target;
     private String returnPath;
-    private List<String> imagefolders = null;
+    private Map<String, String> imagefolders = new HashMap<>();
     private boolean includeOcr = false;
     private boolean includeSource = false;
     private boolean includeImport = false;
@@ -100,23 +106,28 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
     private String transformMetsFileXsl = "";
     private String transformMetsFileResultFileName = "";
 
+    private String checksumValidationCommand = "";
+
     private boolean includeUUID = false;
     private boolean includeChecksum = false;
 
     private static final Namespace mets = Namespace.getNamespace("mets", "http://www.loc.gov/METS/");
     private static final Namespace xlink = Namespace.getNamespace("xlink", "http://www.w3.org/1999/xlink");
-    private static final Namespace xsi = Namespace.getNamespace("xsi", "http://www.w3.org/2001/XMLSchema-instance");
-
 
     @Override
     public void initialize(Step step, String returnPath) {
         this.returnPath = returnPath;
         this.step = step;
-
+        process = step.getProzess();
         // read parameters from correct block in configuration file
         SubnodeConfiguration myconfig = ConfigPlugins.getProjectAndStepConfig(title, step);
         target = myconfig.getString("target", "/opt/digiverso/export/");
-        imagefolders = Arrays.asList(myconfig.getStringArray("imagefolder"));
+
+        List<HierarchicalConfiguration> imageFolderConfig = myconfig.configurationsAt("imagefolder");
+        for (HierarchicalConfiguration hc : imageFolderConfig) {
+            imagefolders.put(hc.getString("."), hc.getString("@filegroup"));
+        }
+
         includeOcr = myconfig.getBoolean("ocr", false);
         includeSource = myconfig.getBoolean("source", false);
         includeImport = myconfig.getBoolean("import", false);
@@ -125,6 +136,7 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
         includeValidation = myconfig.getBoolean("validation", false);
         includeUUID = myconfig.getBoolean("uuid", false);
         includeChecksum = myconfig.getBoolean("checksum", false);
+        checksumValidationCommand = myconfig.getString("checksumValidationCommand", "/usr/bin/sha1sum");
 
         transformMetaFile = myconfig.getBoolean("transformMetaFile", false);
         transformMetaFileXsl = myconfig.getString("transformMetaFileXsl", "/opt/digiverso/goobi/package_meta.xsl");
@@ -180,57 +192,81 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
     @Override
     public PluginReturnValue run() {
         boolean successful = false;
+        List<Path> checksumFiles = null;
+        if (includeChecksum) {
+            Path folder;
+            try {
+                folder = Paths.get(process.getProcessDataDirectory(), "validation", "checksum", "images");
+                if (StorageProvider.getInstance().isDirectory(folder)) {
+                    checksumFiles = StorageProvider.getInstance().listFiles(folder.toString(), checksumFilter);
+                } else {
+                    includeChecksum = false;
+                }
+            } catch (IOException | InterruptedException | SwapException | DAOException e) {
+                log.error(e);
+                includeChecksum = false;
+            }
+        }
 
         // first make sure that the destination folder exists
-        Path destination = Paths.get(target, step.getProzess().getTitel());
+        Path destination = Paths.get(target, process.getTitel());
         if (!Files.exists(destination)) {
             try {
                 Files.createDirectories(destination);
             } catch (IOException e) {
                 log.error("Error during generation of destination path", e);
-                Helper.addMessageToProcessLog(step.getProzess().getId(), LogType.ERROR,
-                        "Error during generation of destination path: " + e.getMessage());
+                Helper.addMessageToProcessLog(process.getId(), LogType.ERROR, "Error during generation of destination path: " + e.getMessage());
             }
         }
 
         // do the regular export of the METS file
         ExportMets em = new ExportMets();
         try {
-            successful = em.startExport(step.getProzess(), destination.toString() + FileSystems.getDefault().getSeparator());
+            successful = em.startExport(process, destination.toString() + FileSystems.getDefault().getSeparator());
         } catch (PreferencesException | WriteException | DocStructHasNoTypeException | MetadataTypeNotAllowedException | ReadException
                 | TypeNotAllowedForParentException | IOException | InterruptedException | ExportFileException | UghHelperException | SwapException
                 | DAOException e) {
             log.error("Error during METS export in package generation", e);
-            Helper.addMessageToProcessLog(step.getProzess().getId(), LogType.ERROR,
-                    "Error during METS export in package generation: " + e.getMessage());
+            Helper.addMessageToProcessLog(process.getId(), LogType.ERROR, "Error during METS export in package generation: " + e.getMessage());
             Helper.setFehlerMeldung("Error during METS export in package generation", e);
         }
 
         // export images folders as well
         try {
-            for (String f : imagefolders) {
-                Path folder = Paths.get(step.getProzess().getConfiguredImageFolder(f));
+            for (String f : imagefolders.keySet()) {
+                Path folder = Paths.get(process.getConfiguredImageFolder(f));
                 if (StorageProvider.getInstance().isFileExists(folder)) {
-                    StorageProvider.getInstance().copyDirectory(folder, Paths.get(destination.toString(), folder.getFileName().toString()));
+                    Path currentDestination = Paths.get(destination.toString(), folder.getFileName().toString());
+                    StorageProvider.getInstance().copyDirectory(folder, currentDestination);
+                    if (includeChecksum) {
+                        if (!validateExportedFolder(checksumFiles, folder, currentDestination)) {
+                            // validation not successful, try it again
+                            StorageProvider.getInstance().copyDirectory(folder, currentDestination);
+                            if (!validateExportedFolder(checksumFiles, folder, currentDestination)) {
+                                // validation still not successful, maybe checksums are outdated?, abort
+                                Helper.addMessageToProcessLog(process.getId(), LogType.ERROR, "checksum missmatch on export");
+                                return PluginReturnValue.ERROR;
+                            }
+
+                        }
+                    }
                 }
             }
         } catch (IOException | InterruptedException | SwapException | DAOException e) {
             successful = false;
             log.error("Error during folder export in package generation", e);
-            Helper.addMessageToProcessLog(step.getProzess().getId(), LogType.ERROR,
-                    "Error during folder export in package generation: " + e.getMessage());
+            Helper.addMessageToProcessLog(process.getId(), LogType.ERROR, "Error during folder export in package generation: " + e.getMessage());
         }
 
         try {
 
             // copy the internal meta.xml file
             StorageProvider.getInstance()
-            .copyFile(Paths.get(step.getProzess().getMetadataFilePath()),
-                    Paths.get(destination.toString(), step.getProzess().getTitel() + "_meta.xml"));
+            .copyFile(Paths.get(process.getMetadataFilePath()), Paths.get(destination.toString(), process.getTitel() + "_meta.xml"));
 
             // export ocr results
             if (includeOcr) {
-                Path ocrFolder = Paths.get(step.getProzess().getOcrDirectory());
+                Path ocrFolder = Paths.get(process.getOcrDirectory());
                 if (ocrFolder != null && Files.exists(ocrFolder)) {
                     List<Path> ocrData = StorageProvider.getInstance().listFiles(ocrFolder.toString());
                     for (Path path : ocrData) {
@@ -245,34 +281,31 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
 
             // export source folder
             if (includeSource) {
-                Path sourceFolder = Paths.get(step.getProzess().getSourceDirectory());
+                Path sourceFolder = Paths.get(process.getSourceDirectory());
                 if (sourceFolder != null && Files.exists(sourceFolder)) {
-                    StorageProvider.getInstance()
-                    .copyDirectory(sourceFolder, Paths.get(destination.toString(), step.getProzess().getTitel() + "_source"));
+                    StorageProvider.getInstance().copyDirectory(sourceFolder, Paths.get(destination.toString(), process.getTitel() + "_source"));
                 }
             }
 
             // export import folder
             if (includeImport) {
-                Path importFolder = Paths.get(step.getProzess().getImportDirectory());
+                Path importFolder = Paths.get(process.getImportDirectory());
                 if (importFolder != null && Files.exists(importFolder)) {
-                    StorageProvider.getInstance()
-                    .copyDirectory(importFolder, Paths.get(destination.toString(), step.getProzess().getTitel() + "_import"));
+                    StorageProvider.getInstance().copyDirectory(importFolder, Paths.get(destination.toString(), process.getTitel() + "_import"));
                 }
             }
 
             // export export folder
             if (includeExport) {
-                Path exportFolder = Paths.get(step.getProzess().getExportDirectory());
+                Path exportFolder = Paths.get(process.getExportDirectory());
                 if (exportFolder != null && Files.exists(exportFolder)) {
-                    StorageProvider.getInstance()
-                    .copyDirectory(exportFolder, Paths.get(destination.toString(), step.getProzess().getTitel() + "_export"));
+                    StorageProvider.getInstance().copyDirectory(exportFolder, Paths.get(destination.toString(), process.getTitel() + "_export"));
                 }
             }
 
             // export ITM folder
             if (includeITM) {
-                Path itmFolder = Paths.get(step.getProzess().getProcessDataDirectory() + "taskmanager");
+                Path itmFolder = Paths.get(process.getProcessDataDirectory() + "taskmanager");
                 if (itmFolder != null && Files.exists(itmFolder)) {
                     StorageProvider.getInstance().copyDirectory(itmFolder, Paths.get(destination.toString(), itmFolder.getFileName().toString()));
                 }
@@ -280,13 +313,13 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
 
             // export validation folder
             if (includeValidation) {
-                Path validationFolder = Paths.get(step.getProzess().getProcessDataDirectory() + "validation");
+                Path validationFolder = Paths.get(process.getProcessDataDirectory() + "validation");
                 if (validationFolder != null && Files.exists(validationFolder)) {
                     StorageProvider.getInstance()
                     .copyDirectory(validationFolder, Paths.get(destination.toString(), validationFolder.getFileName().toString()));
                 }
             }
-            Path metsFile = Paths.get(destination.toString(), step.getProzess().getTitel() + "_mets.xml");
+            Path metsFile = Paths.get(destination.toString(), process.getTitel() + "_mets.xml");
             if (includeUUID) {
                 // open exported file
                 Document document = readDocument(metsFile);
@@ -311,10 +344,8 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
                         idMap.put(oldId, newId);
                     }
                 }
-
-                //  - update fptr to link to uuids
-
-                List<Element> structMaps =root.getChildren("structMap", mets);
+                //  - update fptr, link to uuids
+                List<Element> structMaps = root.getChildren("structMap", mets);
                 for (Element structMap : structMaps) {
                     if ("PHYSICAL".equals(structMap.getAttributeValue("TYPE"))) {
                         Element physSequence = structMap.getChild("div", mets);
@@ -329,32 +360,64 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
                                     fptr.setAttribute("FILEID", newId);
                                 }
                             }
-
                         }
-
-
                     }
                 }
-
-
-
-
-
                 // save exported file
                 writeDocument(document, metsFile);
             }
-
             if (includeChecksum) {
                 // check if checksum file exists
-                // if no - skip?
-                // else
-                // open exported file
-                // get folder for fileGrp
-                // add checksum + type for each file
-                // save exported file
+                Path folder = Paths.get(process.getProcessDataDirectory(), "validation", "checksum", "images");
+                if (StorageProvider.getInstance().isDirectory(folder)) {
 
-                // validate checksums of the exported files
+                    // open exported file
+                    Document document = readDocument(metsFile);
+                    Element root = document.getRootElement();
+                    Element fileSec = root.getChild("fileSec", mets);
+                    List<Element> fileGroups = fileSec.getChildren();
+                    for (Element fileGroup : fileGroups) {
+                        Path checksumFile = null;
+                        // find checksum file for current filegroup
+                        for (String imageFolderName : imagefolders.keySet()) {
+                            String fileGroupName = imagefolders.get(imageFolderName);
+                            if (fileGroupName != null && fileGroupName.equals(fileGroup.getAttributeValue("USE"))) {
+                                Path imageFolder = Paths.get(process.getConfiguredImageFolder(imageFolderName));
+                                for (Path checksum : checksumFiles) {
+                                    if (checksum.getFileName().toString().replace(".sha1", "").equals(imageFolder.getFileName().toString())) {
+                                        checksumFile = checksum;
+                                    }
+                                }
+                            }
+                        }
+                        if (checksumFile != null) {
+                            // read checksums
+                            Map<String, String> filesAndChecksums = new HashMap<>();
+                            List<String> lines = Files.readAllLines(checksumFile);
+                            for (String line : lines) {
+                                if (!line.startsWith("#") && StringUtils.isNotBlank(line)) {
+                                    String[] parts = line.split("  ");
+                                    filesAndChecksums.put(parts[1].substring(0, parts[1].lastIndexOf(".")), parts[0]);
+                                }
+                            }
+                            // add checksum + type for each file element
+                            for (Element file : fileGroup.getChildren()) {
+                                Element location = file.getChild("FLocat", mets);
+                                String ref = location.getAttributeValue("href", xlink);
+                                String filename = ref.contains("/") ? ref.substring(ref.lastIndexOf("/") + 1) : ref;
+                                String basename = filename.substring(0, filename.lastIndexOf("."));
+                                String checksum = filesAndChecksums.get(basename);
+                                if (StringUtils.isNotBlank(checksum)) {
+                                    file.setAttribute("CHECKSUMTYPE", "SHA-1");
+                                    file.setAttribute("CHECKSUM", checksum);
+                                }
+                            }
+                        }
+                    }
 
+                    // save exported file
+                    writeDocument(document, metsFile);
+                }
             }
 
             // do XSLT Transformation of METS file
@@ -369,7 +432,7 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
             // do XSLT Transformation of internal METS file
             if (transformMetaFile) {
                 Source xslt = new StreamSource(new File(transformMetaFileXsl));
-                Source mets = new StreamSource(Paths.get(destination.toString(), step.getProzess().getTitel() + "_meta.xml").toFile());
+                Source mets = new StreamSource(Paths.get(destination.toString(), process.getTitel() + "_meta.xml").toFile());
                 TransformerFactory factory = TransformerFactory.newInstance();
                 Transformer transformer = factory.newTransformer(xslt);
                 transformer.transform(mets, new StreamResult(new File(destination.toFile(), transformMetaFileResultFileName)));
@@ -378,7 +441,7 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
         } catch (SwapException | DAOException | IOException | TransformerException | InterruptedException e) {
             successful = false;
             log.error("Error during additional folder export in package generation", e);
-            Helper.addMessageToProcessLog(step.getProzess().getId(), LogType.ERROR,
+            Helper.addMessageToProcessLog(process.getId(), LogType.ERROR,
                     "Error during additional folder export in package generation: " + e.getMessage());
         }
 
@@ -387,6 +450,53 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
             return PluginReturnValue.ERROR;
         }
         return PluginReturnValue.FINISH;
+    }
+
+    /**
+     * SHA-1 validation of the exported files.
+     * 
+     * returns false, if the files don't match against previous created .sha1 checksum file or true in all other cases (validation successful, no
+     * checksum file found)
+     * 
+     * @param checksumFiles
+     * @param folder
+     * @param currentDestination
+     * @return
+     * @throws IOException
+     * @throws InterruptedException
+     */
+
+    private boolean validateExportedFolder(List<Path> checksumFiles, Path folder, Path currentDestination) throws IOException, InterruptedException {
+        for (Path checksumFile : checksumFiles) {
+            if (checksumFile.getFileName().toString().replace(".sha1", "").equals(folder.getFileName().toString())) {
+                // found checksum file for current folder
+                ProcessBuilder builder = new ProcessBuilder().directory(currentDestination.toFile())
+                        .command(checksumValidationCommand, "--check", "--quiet", checksumFile.toString());
+                java.lang.Process validation = builder.start();
+                int response = validation.waitFor();
+                if (response != 0) {
+                    InputStream stdErr = validation.getErrorStream();
+                    LinkedList<String> result = new LinkedList<>();
+                    Scanner inputLines = null;
+                    try {
+                        inputLines = new Scanner(stdErr);
+                        while (inputLines.hasNextLine()) {
+                            String myLine = inputLines.nextLine();
+                            result.add(myLine);
+                        }
+                    } finally {
+                        if (inputLines != null) {
+                            inputLines.close();
+                        }
+                        if (stdErr != null) {
+                            stdErr.close();
+                        }
+                    }
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     private static Document readDocument(Path path) {
@@ -400,15 +510,21 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
         return document;
     }
 
-    private static void writeDocument (Document document, Path path) {
+    private static void writeDocument(Document document, Path path) {
         XMLOutputter xmlOutput = new XMLOutputter();
         xmlOutput.setFormat(Format.getPrettyFormat());
         try (Writer w = new FileWriter(path.toString())) {
-            xmlOutput.output(document,w);
+            xmlOutput.output(document, w);
         } catch (IOException e) {
             log.error(e);
         }
     }
 
+    private static DirectoryStream.Filter<Path> checksumFilter = new DirectoryStream.Filter<Path>() {
+        @Override
+        public boolean accept(Path entry) throws IOException {
+            return entry.getFileName().toString().endsWith(".sha1");
+        }
+    };
 
 }

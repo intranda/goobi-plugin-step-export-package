@@ -17,7 +17,8 @@
         
         <!-- which image folders to use (master|media|jpeg|source|...) -->
 		<imagefolder>master</imagefolder>
-        <imagefolder>media</imagefolder>
+        <!-- use the attribute filegroup, if you want to add checksums to the files within the filegroup. The checksums are taken from the configured folder -->
+        <imagefolder filegroup="PRESENTATION">media</imagefolder>
         
         <!-- which additional folders to use -->
         <ocr>false</ocr>
@@ -26,8 +27,13 @@
         <export>false</export>
         <itm>false</itm>
         <validation>false</validation>
+        
+        <!-- generate UUIDs for each mets:fileGrp and mets:file -->
         <uuid>false</uuid>
+        <!-- add checksums to mets:files -->
         <checksum>false</checksum>
+        <!-- command to use to validate the exported images -->
+        <checksumValidationCommand>/usr/bin/sha1sum</checksumValidationCommand>        
         
         <!-- if the internal METS file shall get transformed into another file define the path of the xsl file here -->
         <transformMetaFile>true</transformMetaFile>
