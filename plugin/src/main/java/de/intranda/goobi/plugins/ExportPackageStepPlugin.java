@@ -92,6 +92,8 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
     private Process process;
     private String target;
     private String returnPath;
+    private boolean useSubFolderPerProcess = true;
+    private boolean copyInternalMetaFile = true;
     private Map<String, String> imagefolders = new HashMap<>();
     private boolean includeOcr = false;
     private boolean includeSource = false;
@@ -128,6 +130,8 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
             imagefolders.put(hc.getString("."), hc.getString("@filegroup"));
         }
 
+        useSubFolderPerProcess = myconfig.getBoolean("useSubFolderPerProcess", true);
+        copyInternalMetaFile = myconfig.getBoolean("copyInternalMetaFile", true);
         includeOcr = myconfig.getBoolean("ocr", false);
         includeSource = myconfig.getBoolean("source", false);
         includeImport = myconfig.getBoolean("import", false);
@@ -209,7 +213,10 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
         }
 
         // first make sure that the destination folder exists
-        Path destination = Paths.get(target, process.getTitel());
+        Path destination = Paths.get(target);
+        if (useSubFolderPerProcess) {
+            destination = Paths.get(target, process.getTitel());
+        }
         if (!Files.exists(destination)) {
             try {
                 Files.createDirectories(destination);
@@ -261,8 +268,10 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
         try {
 
             // copy the internal meta.xml file
-            StorageProvider.getInstance()
-            .copyFile(Paths.get(process.getMetadataFilePath()), Paths.get(destination.toString(), process.getTitel() + "_meta.xml"));
+            if (copyInternalMetaFile) {
+                StorageProvider.getInstance()
+                        .copyFile(Paths.get(process.getMetadataFilePath()), Paths.get(destination.toString(), process.getTitel() + "_meta.xml"));
+            }
 
             // export ocr results
             if (includeOcr) {
@@ -316,7 +325,7 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
                 Path validationFolder = Paths.get(process.getProcessDataDirectory() + "validation");
                 if (validationFolder != null && Files.exists(validationFolder)) {
                     StorageProvider.getInstance()
-                    .copyDirectory(validationFolder, Paths.get(destination.toString(), validationFolder.getFileName().toString()));
+                            .copyDirectory(validationFolder, Paths.get(destination.toString(), validationFolder.getFileName().toString()));
                 }
             }
             Path metsFile = Paths.get(destination.toString(), process.getTitel() + "_mets.xml");
