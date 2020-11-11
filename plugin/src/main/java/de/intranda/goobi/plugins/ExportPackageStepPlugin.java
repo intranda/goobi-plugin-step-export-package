@@ -67,6 +67,7 @@ import de.sub.goobi.config.ConfigPlugins;
 import de.sub.goobi.export.download.ExportMets;
 import de.sub.goobi.helper.Helper;
 import de.sub.goobi.helper.StorageProvider;
+import de.sub.goobi.helper.VariableReplacer;
 import de.sub.goobi.helper.exceptions.DAOException;
 import de.sub.goobi.helper.exceptions.ExportFileException;
 import de.sub.goobi.helper.exceptions.SwapException;
@@ -428,14 +429,16 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
                     writeDocument(document, metsFile);
                 }
             }
-
+            VariableReplacer variableReplacer = new VariableReplacer(null, null, process, step);
             // do XSLT Transformation of METS file
             if (transformMetsFile) {
                 Source xslt = new StreamSource(new File(transformMetsFileXsl));
                 Source mets = new StreamSource(metsFile.toFile());
                 TransformerFactory factory = TransformerFactory.newInstance();
                 Transformer transformer = factory.newTransformer(xslt);
-                transformer.transform(mets, new StreamResult(new File(destination.toFile(), transformMetsFileResultFileName)));
+                transformer.setParameter("processTitle", process.getTitel());
+                transformer.transform(mets,
+                        new StreamResult(new File(destination.toFile(), variableReplacer.replace(transformMetsFileResultFileName))));
             }
 
             // do XSLT Transformation of internal METS file
@@ -444,7 +447,8 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
                 Source mets = new StreamSource(Paths.get(destination.toString(), process.getTitel() + "_meta.xml").toFile());
                 TransformerFactory factory = TransformerFactory.newInstance();
                 Transformer transformer = factory.newTransformer(xslt);
-                transformer.transform(mets, new StreamResult(new File(destination.toFile(), transformMetaFileResultFileName)));
+                transformer.transform(mets,
+                        new StreamResult(new File(destination.toFile(), variableReplacer.replace(transformMetaFileResultFileName))));
             }
 
         } catch (SwapException | DAOException | IOException | TransformerException | InterruptedException e) {
