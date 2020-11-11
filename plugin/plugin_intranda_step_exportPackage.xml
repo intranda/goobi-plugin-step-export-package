@@ -14,6 +14,8 @@
         
         <!-- export path -->
         <target>/opt/digiverso/export/</target>
+        <!-- use subfolder for each process -->
+        <useSubFolderPerProcess>true</useSubFolderPerProcess>
         
         <!-- which image folders to use (master|media|jpeg|source|...) -->
 		<imagefolder>master</imagefolder>
@@ -36,6 +38,7 @@
         <checksumValidationCommand>/usr/bin/sha1sum</checksumValidationCommand>        
         
         <!-- if the internal METS file shall get transformed into another file define the path of the xsl file here -->
+        <copyInternalMetaFile>true</copyInternalMetaFile>
         <transformMetaFile>true</transformMetaFile>
         <transformMetaFileXsl>/opt/digiverso/goobi/xslt/export_meta.xsl</transformMetaFileXsl>
         <transformMetaFileResultFileName>xslt_result_meta.xml</transformMetaFileResultFileName>
