@@ -16,6 +16,7 @@
         <target>/opt/digiverso/export/</target>
         <!-- use subfolder for each process -->
         <useSubFolderPerProcess>true</useSubFolderPerProcess>
+        <folderNameRule>{meta.CatalogIDDigital}_{timestamp}</folderNameRule>  
         
         <!-- which image folders to use (master|media|jpeg|source|...) -->
 		<imagefolder>master</imagefolder>
@@ -29,6 +30,7 @@
         <export>false</export>
         <itm>false</itm>
         <validation>false</validation>
+        
         
         <!-- generate UUIDs for each mets:fileGrp and mets:file -->
         <uuid>false</uuid>

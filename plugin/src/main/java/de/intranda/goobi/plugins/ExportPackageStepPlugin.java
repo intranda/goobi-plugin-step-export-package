@@ -62,6 +62,7 @@ import org.jdom2.Namespace;
 import org.jdom2.input.SAXBuilder;
 import org.jdom2.output.Format;
 import org.jdom2.output.XMLOutputter;
+import org.joda.time.DateTime;
 
 import de.sub.goobi.config.ConfigPlugins;
 import de.sub.goobi.export.download.ExportMets;
@@ -114,6 +115,8 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
     private boolean includeUUID = false;
     private boolean includeChecksum = false;
 
+    private String folderNameRule;
+
     private static final Namespace mets = Namespace.getNamespace("mets", "http://www.loc.gov/METS/");
     private static final Namespace xlink = Namespace.getNamespace("xlink", "http://www.w3.org/1999/xlink");
 
@@ -133,6 +136,9 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
 
         useSubFolderPerProcess = myconfig.getBoolean("useSubFolderPerProcess", true);
         copyInternalMetaFile = myconfig.getBoolean("copyInternalMetaFile", true);
+
+        folderNameRule = myconfig.getString("folderNameRule", null);
+
         includeOcr = myconfig.getBoolean("ocr", false);
         includeSource = myconfig.getBoolean("source", false);
         includeImport = myconfig.getBoolean("import", false);
@@ -212,11 +218,30 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
                 includeChecksum = false;
             }
         }
+        VariableReplacer variableReplacer = null;
 
+        try {
+            variableReplacer =
+                    new VariableReplacer(process.readMetadataFile().getDigitalDocument(), process.getRegelsatz().getPreferences(), process, step);
+        } catch (PreferencesException | ReadException | WriteException | IOException | InterruptedException | SwapException | DAOException e1) {
+            log.info(e1);
+            variableReplacer = new VariableReplacer(null, null, process, step);
+        }
         // first make sure that the destination folder exists
         Path destination = Paths.get(target);
         if (useSubFolderPerProcess) {
-            destination = Paths.get(target, process.getTitel());
+
+            if (StringUtils.isBlank(folderNameRule)) {
+                destination = Paths.get(target, process.getTitel());
+            } else {
+                String folderName = folderNameRule;
+                if (folderName.contains("{timestamp}")) {
+                    String dateFormat = getDateFormat(System.currentTimeMillis());
+                    folderName = folderNameRule.replace("{timestamp}", dateFormat);
+                }
+                folderName = variableReplacer.replace(folderName);
+                destination = Paths.get(target, folderName);
+            }
         }
         if (!Files.exists(destination)) {
             try {
@@ -271,7 +296,7 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
             // copy the internal meta.xml file
             if (copyInternalMetaFile) {
                 StorageProvider.getInstance()
-                        .copyFile(Paths.get(process.getMetadataFilePath()), Paths.get(destination.toString(), process.getTitel() + "_meta.xml"));
+                .copyFile(Paths.get(process.getMetadataFilePath()), Paths.get(destination.toString(), process.getTitel() + "_meta.xml"));
             }
 
             // export ocr results
@@ -326,7 +351,7 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
                 Path validationFolder = Paths.get(process.getProcessDataDirectory() + "validation");
                 if (validationFolder != null && Files.exists(validationFolder)) {
                     StorageProvider.getInstance()
-                            .copyDirectory(validationFolder, Paths.get(destination.toString(), validationFolder.getFileName().toString()));
+                    .copyDirectory(validationFolder, Paths.get(destination.toString(), validationFolder.getFileName().toString()));
                 }
             }
             Path metsFile = Paths.get(destination.toString(), process.getTitel() + "_mets.xml");
@@ -429,7 +454,7 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
                     writeDocument(document, metsFile);
                 }
             }
-            VariableReplacer variableReplacer = new VariableReplacer(null, null, process, step);
+
             // do XSLT Transformation of METS file
             if (transformMetsFile) {
                 Source xslt = new StreamSource(new File(transformMetsFileXsl));
@@ -463,6 +488,46 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
             return PluginReturnValue.ERROR;
         }
         return PluginReturnValue.FINISH;
+    }
+
+    static String getDateFormat(long currentTimeMillis) {
+
+        DateTime dt = new DateTime(currentTimeMillis);
+
+        int year = dt.getYear();
+        int month = dt.getMonthOfYear();
+        int day = dt.getDayOfMonth();
+        int hours = dt.getHourOfDay();
+        int min = dt.getMinuteOfHour();
+        int sec = dt.getSecondOfMinute();
+
+        StringBuilder formattedDate = new StringBuilder();
+        formattedDate.append(year);
+        if (month < 10) {
+            formattedDate.append("0");
+        }
+        formattedDate.append(month);
+        if (day < 10) {
+            formattedDate.append("0");
+        }
+        formattedDate.append(day);
+        formattedDate.append("_");
+        if (hours < 10) {
+            formattedDate.append("0");
+        }
+        formattedDate.append(hours);
+
+        if (min < 10) {
+            formattedDate.append("0");
+        }
+        formattedDate.append(min);
+
+        if (sec < 10) {
+            formattedDate.append("0");
+        }
+        formattedDate.append(sec);
+
+        return formattedDate.toString();
     }
 
     /**
