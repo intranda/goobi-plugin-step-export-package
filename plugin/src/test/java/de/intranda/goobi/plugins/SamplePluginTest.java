@@ -1,7 +1,7 @@
 package de.intranda.goobi.plugins;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 
@@ -15,13 +15,12 @@ public class SamplePluginTest {
         assertNotNull(s);
     }
 
-
     @Test
 
     public void testDateConversion() {
-        long millis =1605166369678l;
+        long millis = 1605166369678l;
         String format = ExportPackageStepPlugin.getDateFormat(millis);
-        assertEquals("20201112_083249", format);
+        assertTrue("20201112_083249".equals(format) || "20201112_073249".equals(format)); // check two formats because jenkins sits in a different time zone
 
     }
 
