@@ -114,7 +114,7 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
 
     private boolean includeUUID = false;
     private boolean includeChecksum = false;
-
+    private String fileGroupReplacement;
     private String folderNameRule;
 
     private static final Namespace mets = Namespace.getNamespace("mets", "http://www.loc.gov/METS/");
@@ -147,6 +147,8 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
         includeValidation = myconfig.getBoolean("validation", false);
         includeUUID = myconfig.getBoolean("uuid", false);
         includeChecksum = myconfig.getBoolean("checksum", false);
+        fileGroupReplacement = myconfig.getString("fileGroupReplacement");
+
         checksumValidationCommand = myconfig.getString("checksumValidationCommand", "/usr/bin/sha1sum");
 
         transformMetaFile = myconfig.getBoolean("transformMetaFile", false);
@@ -229,12 +231,13 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
         }
         // first make sure that the destination folder exists
         Path destination = Paths.get(target);
+        String folderName = null;
         if (useSubFolderPerProcess) {
 
             if (StringUtils.isBlank(folderNameRule)) {
                 destination = Paths.get(target, process.getTitel());
             } else {
-                String folderName = folderNameRule;
+                folderName = folderNameRule;
                 if (folderName.contains("{timestamp}")) {
                     String dateFormat = getDateFormat(System.currentTimeMillis());
                     folderName = folderNameRule.replace("{timestamp}", dateFormat);
@@ -454,6 +457,28 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
                     writeDocument(document, metsFile);
                 }
             }
+
+            if (StringUtils.isNotBlank(fileGroupReplacement) && StringUtils.isNotBlank(folderName)) {
+                String searchValue = variableReplacer.replace(fileGroupReplacement);
+                // open exported file
+                Document document = readDocument(metsFile);
+
+                Element root = document.getRootElement();
+                Element fileSec = root.getChild("fileSec", mets);
+                List<Element> fileGroups = fileSec.getChildren();
+                for (Element fileGroup : fileGroups) {
+                    for (Element file : fileGroup.getChildren()) {
+                        Element location = file.getChild("FLocat", mets);
+                        String ref = location.getAttributeValue("href", xlink);
+                        ref = ref.replace(searchValue, folderName);
+                        location.setAttribute("href", ref, xlink);
+                    }
+                }
+
+                // save exported file
+                writeDocument(document, metsFile);
+            }
+
 
             // do XSLT Transformation of METS file
             if (transformMetsFile) {

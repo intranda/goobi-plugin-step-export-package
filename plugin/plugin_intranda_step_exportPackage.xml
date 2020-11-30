@@ -17,7 +17,8 @@
         <!-- use subfolder for each process -->
         <useSubFolderPerProcess>true</useSubFolderPerProcess>
         <folderNameRule>{meta.CatalogIDDigital}_{timestamp}</folderNameRule>  
-        
+	    <!-- replace this part of the file href with the generated folder name. Leave it empty, if nothing needs to be replaced -->
+        <fileGroupReplacement>{meta.CatalogIDDigital}</fileGroupReplacement>
         <!-- which image folders to use (master|media|jpeg|source|...) -->
 		<imagefolder>master</imagefolder>
         <!-- use the attribute filegroup, if you want to add checksums to the files within the filegroup. The checksums are taken from the configured folder -->
