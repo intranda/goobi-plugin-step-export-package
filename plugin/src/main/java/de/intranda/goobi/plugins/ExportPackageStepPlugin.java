@@ -111,7 +111,8 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
     private String transformMetsFileResultFileName = "";
 
     private String checksumValidationCommand = "";
-
+    private String checksumFileExtension = "";
+    private String checksumType = "";
     private boolean includeUUID = false;
     private boolean includeChecksum = false;
     private String fileGroupReplacement;
@@ -150,6 +151,11 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
         fileGroupReplacement = myconfig.getString("fileGroupReplacement");
 
         checksumValidationCommand = myconfig.getString("checksumValidationCommand", "/usr/bin/sha1sum");
+        checksumFileExtension = myconfig.getString("checksumFileExtension", ".sha1");
+        if (StringUtils.isNotBlank(checksumFileExtension) && !checksumFileExtension.startsWith(".")) {
+            checksumFileExtension = "." + checksumFileExtension;
+        }
+        checksumType = myconfig.getString("checksumType", "SHA-1");
 
         transformMetaFile = myconfig.getBoolean("transformMetaFile", false);
         transformMetaFileXsl = myconfig.getString("transformMetaFileXsl", "/opt/digiverso/goobi/package_meta.xsl");
@@ -422,7 +428,10 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
                             if (fileGroupName != null && fileGroupName.equals(fileGroup.getAttributeValue("USE"))) {
                                 Path imageFolder = Paths.get(process.getConfiguredImageFolder(imageFolderName));
                                 for (Path checksum : checksumFiles) {
-                                    if (checksum.getFileName().toString().replace(".sha1", "").equals(imageFolder.getFileName().toString())) {
+                                    if (checksum.getFileName()
+                                            .toString()
+                                            .replace(checksumFileExtension, "")
+                                            .equals(imageFolder.getFileName().toString())) {
                                         checksumFile = checksum;
                                     }
                                 }
@@ -446,7 +455,7 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
                                 String basename = filename.substring(0, filename.lastIndexOf("."));
                                 String checksum = filesAndChecksums.get(basename);
                                 if (StringUtils.isNotBlank(checksum)) {
-                                    file.setAttribute("CHECKSUMTYPE", "SHA-1");
+                                    file.setAttribute("CHECKSUMTYPE", checksumType);
                                     file.setAttribute("CHECKSUM", checksum);
                                 }
                             }
@@ -478,7 +487,6 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
                 // save exported file
                 writeDocument(document, metsFile);
             }
-
 
             // do XSLT Transformation of METS file
             if (transformMetsFile) {
@@ -556,10 +564,10 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
     }
 
     /**
-     * SHA-1 validation of the exported files.
+     * validation of the exported files.
      * 
-     * returns false, if the files don't match against previous created .sha1 checksum file or true in all other cases (validation successful, no
-     * checksum file found)
+     * returns false, if the files don't match against previous created checksum file or true in all other cases (validation successful, no checksum
+     * file found)
      * 
      * @param checksumFiles
      * @param folder
@@ -571,7 +579,7 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
 
     private boolean validateExportedFolder(List<Path> checksumFiles, Path folder, Path currentDestination) throws IOException, InterruptedException {
         for (Path checksumFile : checksumFiles) {
-            if (checksumFile.getFileName().toString().replace(".sha1", "").equals(folder.getFileName().toString())) {
+            if (checksumFile.getFileName().toString().replace(checksumFileExtension, "").equals(folder.getFileName().toString())) {
                 // found checksum file for current folder
                 ProcessBuilder builder = new ProcessBuilder().directory(currentDestination.toFile())
                         .command(checksumValidationCommand, "--check", "--quiet", checksumFile.toString());
@@ -623,10 +631,10 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
         }
     }
 
-    private static DirectoryStream.Filter<Path> checksumFilter = new DirectoryStream.Filter<Path>() {
+    private DirectoryStream.Filter<Path> checksumFilter = new DirectoryStream.Filter<Path>() {
         @Override
         public boolean accept(Path entry) throws IOException {
-            return entry.getFileName().toString().endsWith(".sha1");
+            return entry.getFileName().toString().endsWith(checksumFileExtension);
         }
     };
 

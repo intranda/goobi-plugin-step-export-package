@@ -37,8 +37,12 @@
         <uuid>false</uuid>
         <!-- add checksums to mets:files -->
         <checksum>false</checksum>
+        <!-- file extension of the checksum files -->
+        <checksumFileExtension>.sha1</checksumFileExtension>
         <!-- command to use to validate the exported images -->
         <checksumValidationCommand>/usr/bin/sha1sum</checksumValidationCommand>        
+        <!-- checksum type, written into the mets file -->
+        <checksumType>SHA-1</checksumType>
         
         <!-- if the internal METS file shall get transformed into another file define the path of the xsl file here -->
         <copyInternalMetaFile>true</copyInternalMetaFile>
