@@ -221,7 +221,7 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
                 } else {
                     includeChecksum = false;
                 }
-            } catch (IOException | InterruptedException | SwapException | DAOException e) {
+            } catch (IOException | SwapException e) {
                 log.error(e);
                 includeChecksum = false;
             }
@@ -231,7 +231,7 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
         try {
             variableReplacer =
                     new VariableReplacer(process.readMetadataFile().getDigitalDocument(), process.getRegelsatz().getPreferences(), process, step);
-        } catch (PreferencesException | ReadException | WriteException | IOException | InterruptedException | SwapException | DAOException e1) {
+        } catch (PreferencesException | ReadException | IOException | SwapException e1) {
             log.info(e1);
             variableReplacer = new VariableReplacer(null, null, process, step);
         }
@@ -509,7 +509,7 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
                         new StreamResult(new File(destination.toFile(), variableReplacer.replace(transformMetaFileResultFileName))));
             }
 
-        } catch (SwapException | DAOException | IOException | TransformerException | InterruptedException e) {
+        } catch (SwapException | DAOException | IOException | TransformerException e) {
             successful = false;
             log.error("Error during additional folder export in package generation", e);
             Helper.addMessageToProcessLog(process.getId(), LogType.ERROR,
