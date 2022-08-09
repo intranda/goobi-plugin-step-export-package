@@ -16,6 +16,8 @@
         <target>/opt/digiverso/export/</target>
         <!-- use subfolder for each process -->
         <useSubFolderPerProcess>true</useSubFolderPerProcess>
+        <!-- a zip file with the subfolder-name will be created -->
+        <createZipPerProcess>true</createZipPerProcess>
         <folderNameRule>{meta.CatalogIDDigital}_{timestamp}</folderNameRule>  
 	    <!-- replace this part of the file href with the generated folder name. Leave it empty, if nothing needs to be replaced -->
         <fileGroupReplacement>{meta.CatalogIDDigital}</fileGroupReplacement>
