@@ -3,6 +3,10 @@ title: Package Export
 identifier: intranda_step_exportPackage
 published: true
 description: Dieses Step Plugin ermöglicht einen flexiblen Export von Metadaten und Inhalten eines Goobi Vorgangs an einen konfigurierbaren Pfad
+keywords:
+    - Goobi workflow
+    - Plugin
+    - Step Plugin
 ---
 ## Einführung
 Dieses Plugin erlaubt einen flexiblen Export von Daten eines Vorgangs in ein definiertes Zielverzeichnis. Dabei kann dieses Plugin sehr granular konfiguriert werden, um ausgewählte Daten im Export zu berücksichtigen. Darüber hinaus ist hier ebenfalls eine Transformation der internen und der Export-METS-Datei via XSLT möglich und erlaubt so verschiedenste Einsatzszenarien.
