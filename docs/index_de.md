@@ -33,7 +33,7 @@ Zur Inbetriebnahme des Plugins muss dieses für einen oder mehrere gewünschte A
 
 Da dieses Plugin üblicherweise automatisch ausgeführt werden soll, sollte der Arbeitsschritt im Workflow als automatisch konfiguriert werden.
 
-Nachdem das Plugin vollständig installiert und eingerichtet wurde, wird es üblicherweise automatisch innerhalb des Workflows ausgeführt, so dass keine manuelle Interaktion mit dem Nutzer erfolgt. Stattdessen erfolgt der Aufruf des Plugins durch den Workflow im Hintergrund und führt den konfigurierten Export in das Zielverzeichnis durch. Dabei werden die angegebenen Inhalte alle in ein Unterverzeichnes des definierten Export-Pfades kopiert.
+Nachdem das Plugin vollständig installiert und eingerichtet wurde, wird es üblicherweise automatisch innerhalb des Workflows ausgeführt, so dass keine manuelle Interaktion mit dem Nutzer erfolgt. Stattdessen erfolgt der Aufruf des Plugins durch den Workflow im Hintergrund und führt den konfigurierten Export in das Zielverzeichnis durch. Dabei werden die angegebenen Inhalte alle in ein Unterverzeichnis des definierten Export-Pfades kopiert.
 
 Je nach Konfiguration kann dabei zusätzlich zu dem Export der Daten auch eine XSLT-Transformation der internen oder auch der Export-METS-Datei erfolgen, um diese in ein gewünschtes Format zu bringen. Abhängig von dieser Transformation sowie der Benennung der Transformationsdatei wird diese abschließend ebenfalls mit in dem Ordner des exportierten Vorganges gespeichert.
 
