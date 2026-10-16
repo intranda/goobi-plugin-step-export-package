@@ -92,6 +92,9 @@ Die Konfiguration des Plugins ist folgendermaßen aufgebaut:
         <transformMetsFile>true</transformMetsFile>
         <transformMetsFileXsl>/opt/digiverso/goobi/xslt/export_mets.xsl</transformMetsFileXsl>
         <transformMetsFileResultFileName>xslt_result_mets.xml</transformMetsFileResultFileName>
+
+        <!-- allow XSLT files to read local files (e.g. via document() or xsl:include), default is false -->
+        <xsltAllowFileAccess>false</xsltAllowFileAccess>
     </config>
 
 </config_plugin>
@@ -122,3 +125,4 @@ Der Block `<config>` kann für verschiedene Projekte oder Arbeitsschritte wieder
 | `transformMetsFile` | Mit diesem Parameter wird festgelegt, ob die Export-METS-Datei von Goobi workflow in das Zielverzeichnis kopiert werden soll. |
 | `transformMetsFileXsl` | Mit diesem Parameter kann festgelegt werden, ob die Export-METS-Datei mittels der hier definierten XSLT-Transformationsdatei verarbeitet werden soll. |
 | `transformMetsFileResultFileName` | Wenn eine Transformation der Export-METS-Datei mittels XSLT erfolgen soll, kann hier festgelegt werden, wie der Name der zu generierenden Datei lauten soll. |
+| `xsltAllowFileAccess` | Mit diesem Parameter kann festgelegt werden, ob die XSLT-Transformationen auf lokale Dateien zugreifen dürfen, z.B. über `document()`, `xsl:include` oder `xsl:import`. Der Zugriff auf entfernte Ressourcen (z.B. `http`) bleibt immer gesperrt. Standardwert ist `false`. |

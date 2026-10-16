@@ -56,6 +56,9 @@
         <transformMetsFile>true</transformMetsFile>
         <transformMetsFileXsl>/opt/digiverso/goobi/xslt/export_mets.xsl</transformMetsFileXsl>
         <transformMetsFileResultFileName>xslt_result_mets.xml</transformMetsFileResultFileName>
+        
+        <!-- allow XSLT files to read local files (e.g. via document() or xsl:include), default is false -->
+        <xsltAllowFileAccess>false</xsltAllowFileAccess>
     </config>
 
 </config_plugin>

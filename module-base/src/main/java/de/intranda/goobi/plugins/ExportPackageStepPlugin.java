@@ -116,6 +116,7 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
     private boolean transformMetsFile = false;
     private String transformMetsFileXsl = "";
     private String transformMetsFileResultFileName = "";
+    private boolean xsltAllowFileAccess = false;
 
     private String checksumValidationCommand = "";
     private String checksumFileExtension = "";
@@ -176,6 +177,7 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
         transformMetsFile = myconfig.getBoolean("transformMetsFile", false);
         transformMetsFileXsl = myconfig.getString("transformMetsFileXsl", "/opt/digiverso/goobi/package_mets.xsl");
         transformMetsFileResultFileName = myconfig.getString("transformMetsFileResultFileName", "resultFromMets.xml");
+        xsltAllowFileAccess = myconfig.getBoolean("xsltAllowFileAccess", false);
 
         log.info("GeneratePackage step plugin initialized");
     }
@@ -525,7 +527,7 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
                 Source mets = new StreamSource(metsFile.toFile());
                 TransformerFactory factory = TransformerFactory.newInstance();
                 factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-                factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
+                factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, xsltAllowFileAccess ? "file" : "");
                 Transformer transformer = factory.newTransformer(xslt);
                 transformer.setParameter("processTitle", process.getTitel());
                 transformer.transform(mets, new StreamResult(
@@ -539,7 +541,7 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
                         Paths.get(destination.toString(), process.getTitel() + "_meta.xml").toFile());
                 TransformerFactory factory = TransformerFactory.newInstance();
                 factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-                factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
+                factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, xsltAllowFileAccess ? "file" : "");
                 Transformer transformer = factory.newTransformer(xslt);
                 transformer.transform(mets, new StreamResult(
                         new File(destination.toFile(), variableReplacer.replace(transformMetaFileResultFileName))));
