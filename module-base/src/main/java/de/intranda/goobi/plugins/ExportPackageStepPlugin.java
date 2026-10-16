@@ -129,6 +129,14 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
     private static final Namespace mets = Namespace.getNamespace("mets", "http://www.loc.gov/METS/");
     private static final Namespace xlink = Namespace.getNamespace("xlink", "http://www.w3.org/1999/xlink");
 
+    // Saxon configuration prefix to pass features to the underlying XML parser (FeatureKeys.XML_PARSER_FEATURE)
+    private static final String SAXON_PARSER_FEATURE = "http://saxon.sf.net/feature/parserFeature?uri=";
+    private static final String[] DISABLED_PARSER_FEATURES = {
+            "http://apache.org/xml/features/nonvalidating/load-external-dtd",
+            "http://xml.org/sax/features/external-general-entities",
+            "http://xml.org/sax/features/external-parameter-entities"
+    };
+
     @Override
     public void initialize(Step step, String returnPath) {
         this.returnPath = returnPath;
@@ -525,10 +533,7 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
             if (transformMetsFile) {
                 Source xslt = new StreamSource(new File(transformMetsFileXsl));
                 Source mets = new StreamSource(metsFile.toFile());
-                TransformerFactory factory = TransformerFactory.newInstance();
-                factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-                factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, xsltAllowFileAccess ? "file" : "");
-                Transformer transformer = factory.newTransformer(xslt);
+                Transformer transformer = createTransformerFactory().newTransformer(xslt);
                 transformer.setParameter("processTitle", process.getTitel());
                 transformer.transform(mets, new StreamResult(
                         new File(destination.toFile(), variableReplacer.replace(transformMetsFileResultFileName))));
@@ -539,10 +544,7 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
                 Source xslt = new StreamSource(new File(transformMetaFileXsl));
                 Source mets = new StreamSource(
                         Paths.get(destination.toString(), process.getTitel() + "_meta.xml").toFile());
-                TransformerFactory factory = TransformerFactory.newInstance();
-                factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-                factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, xsltAllowFileAccess ? "file" : "");
-                Transformer transformer = factory.newTransformer(xslt);
+                Transformer transformer = createTransformerFactory().newTransformer(xslt);
                 transformer.transform(mets, new StreamResult(
                         new File(destination.toFile(), variableReplacer.replace(transformMetaFileResultFileName))));
             }
@@ -723,6 +725,23 @@ public class ExportPackageStepPlugin implements IStepPluginVersion2 {
             }
         }
         return true;
+    }
+
+    /**
+     * Create a TransformerFactory that does not load external DTDs or entities and only allows access to local files if configured
+     */
+    private TransformerFactory createTransformerFactory() {
+        TransformerFactory factory = TransformerFactory.newInstance();
+        // the JAXP property ACCESS_EXTERNAL_DTD is not supported by Apache Xerces, use the parser features instead
+        for (String feature : DISABLED_PARSER_FEATURES) {
+            try {
+                factory.setAttribute(SAXON_PARSER_FEATURE + feature, false);
+            } catch (IllegalArgumentException e) {
+                log.warn("TransformerFactory {} does not support the parser feature {}", factory.getClass().getName(), feature);
+            }
+        }
+        factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, xsltAllowFileAccess ? "file" : "");
+        return factory;
     }
 
     private static Document readDocument(Path path) {
